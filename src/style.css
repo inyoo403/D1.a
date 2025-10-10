@@ -24,12 +24,17 @@ html, body {
   text-align: center;
 }
 
+.stats {
+  margin: 8px 0;
+  font-size: 18px;
+}
+
 .main-btn {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: 140px; /* emoji size = button size */
+  font-size: 140px;
   line-height: 1;
   user-select: none;
   transition: transform 60ms ease;
