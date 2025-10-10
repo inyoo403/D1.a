@@ -1,5 +1,42 @@
-.icon {
-  width: 64px;
-  vertical-align: top;
-  border: 1px solid salmon;
+:root {
+  --bg: #ffffff;
+  --text: #0f172a;
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.5 system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.app {
+  max-width: 720px;
+  margin: 32px auto;
+  padding: 0 16px;
+  text-align: center;
+}
+
+.main-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 140px; /* emoji size = button size */
+  line-height: 1;
+  user-select: none;
+  transition: transform 60ms ease;
+}
+.main-btn:hover {
+  transform: scale(1.05);
+}
+.main-btn:active {
+  transform: scale(0.95);
 }
