@@ -1,6 +1,7 @@
 import "./style.css";
 
 let apples = 0;
+const applesPerSecond = 1;
 
 const app = document.createElement("div");
 app.className = "app";
@@ -25,7 +26,12 @@ mainBtn.addEventListener("click", () => {
   counter.textContent = `🍎 ${apples}`;
 });
 
-setInterval(() => {
-  apples += 1;
-  counter.textContent = `🍎 ${apples}`;
-}, 1000);
+let last = performance.now();
+function loop(now: number) {
+  const dt = (now - last) / 1000;
+  last = now;
+  apples += applesPerSecond * dt;
+  counter.textContent = `🍎 ${apples.toFixed(1)}`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
