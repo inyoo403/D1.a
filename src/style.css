@@ -1,6 +1,9 @@
 :root {
   --bg: #ffffff;
   --text: #0f172a;
+  --muted: #64748b;
+  --border: #cbd5e1;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 html, body {
@@ -29,10 +32,17 @@ html, body {
   font-size: 18px;
 }
 
+.section-title {
+  margin: 28px 0 12px;
+  font-weight: 700;
+  font-size: 20px;
+}
+
 .main-btn {
   background: none;
   border: none;
   padding: 0;
+  margin: 12px 0;
   cursor: pointer;
   font-size: 140px;
   line-height: 1;
@@ -44,4 +54,37 @@ html, body {
 }
 .main-btn:active {
   transform: scale(0.95);
+}
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.price {
+  min-width: 140px;
+  text-align: right;
+  color: var(--muted);
+}
+
+.buy-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 100ms ease, transform 60ms ease, box-shadow 120ms ease;
+}
+.buy-btn:hover {
+  background: #f1f5f9;
+  box-shadow: var(--shadow);
+}
+.buy-btn:active {
+  transform: translateY(1px);
+}
+.buy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
