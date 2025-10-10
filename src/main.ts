@@ -24,3 +24,8 @@ mainBtn.addEventListener("click", () => {
   apples += 1;
   counter.textContent = `🍎 ${apples}`;
 });
+
+setInterval(() => {
+  apples += 1;
+  counter.textContent = `🍎 ${apples}`;
+}, 1000);
