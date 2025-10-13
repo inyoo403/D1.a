@@ -1,100 +1,120 @@
-/* ----- THEME ----- */
 :root {
-  --bg: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: #cbd5e1;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --brand: #00449f;
-  --frame-w: 100px;
-  --frame-h: 100px;
-  --cols: 30;
-  --rows: 10;
-  --frames: 300;
-  --spin-duration: 20000ms;
+  --text: #ffffff;
+  --muted: #ffffff99;
+  --border-color: rgba(255, 255, 255, 0.25);
+  --panel-bg: rgba(255, 255, 255, 0.15);
+  --button-bg: rgba(255, 255, 255, 0.2);
+  --button-hover-bg: rgba(255, 255, 255, 0.3);
 }
 
-/* ----- BASE ----- */
-html,
-body {
+/* ----- BASE & BACKGROUND ----- */
+html, body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
-  font:
-    16px/1.5 system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+  font: 16px/1.5 system-ui, -apple-system, sans-serif;
+  height: 100%;
+  overflow: hidden;
+  background-image: url("/sprites/bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
-.app {
-  max-width: 720px;
-  margin: 32px auto;
-  padding: 0 16px;
+
+/* ----- LAYOUT ----- */
+.game-container {
+  display: grid;
+  grid-template-columns: 2fr 3fr 2fr;
+  height: 100vh;
+  gap: 20px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* ----- THE GLASS PANELS ----- */
+.column {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.column-middle, .column-right {
+  overflow-y: auto;
+}
+
+.section-title {
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 20px;
   text-align: center;
-}
-.muted {
-  color: var(--muted);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* ----- STATS ----- */
+/* ----- COLUMN 1: GLOBE ----- */
+.column-left {
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  position: relative;
+}
 .stats {
-  margin: 8px 0 0;
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 500;
+  margin: 16px 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-.stats strong {
-  color: var(--brand);
-}
-
-/* ----- MAIN BUTTON ----- */
 .main-btn {
   background: none;
   border: none;
   padding: 0;
-  margin: 12px 0 4px;
   cursor: pointer;
   user-select: none;
-  transition: transform 60ms ease;
+  width: 90%;
+  max-width: 300px;
+  aspect-ratio: 1 / 1;
+  transition: transform 100ms ease, filter 100ms ease;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 .main-btn:hover {
-  transform: scale(1.05);
+  transform: translate(-50%, -50%) scale(1.02);
+  filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.4));
 }
 .main-btn:active {
-  transform: scale(0.98);
+  transform: translate(-50%, -50%) scale(0.98);
 }
-
-/* ----- SPRITE LAYERS ----- */
 .iconWrap {
-  display: inline-block;
-  width: var(--frame-w);
-  height: var(--frame-h);
-  will-change: transform;
+  width: 100%;
+  height: 100%;
 }
-
 .globe {
   width: 100%;
   height: 100%;
   background-image: url("/sprites/earth.png");
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-size: calc(var(--cols) * var(--frame-w))
-    calc(var(--rows) * var(--frame-h));
+  background-size: 3000% 1000%;
   image-rendering: pixelated;
-  pointer-events: none;
-  will-change: background-position;
 }
-
 @keyframes popOnce {
   0% {
     transform: scale(1);
   }
   30% {
-    transform: scale(1.15);
+    transform: scale(1.08);
   }
   60% {
-    transform: scale(0.92);
+    transform: scale(0.98);
   }
   100% {
     transform: scale(1);
@@ -104,81 +124,58 @@ body {
   animation: popOnce 180ms ease-out;
 }
 
-/* ----- UPGRADE LIST ----- */
-.section-title {
-  margin: 28px 0 12px;
-  font-weight: 700;
-  font-size: 20px;
-}
-
+/* ----- COLUMN 2: UPGRADES ----- */
 .list {
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-
 .row {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 24px;
-  width: 100%;
-  padding: 12px 20px;
-  border: 1px solid var(--border);
+  gap: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-sizing: border-box;
-  transition: border-color 150ms ease, background-color 150ms ease;
 }
-.row:hover {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
-}
-
 .price {
   text-align: left;
 }
 .item-name {
   font-weight: 600;
 }
-.item-desc {
+.item-desc, .item-sub {
   font-size: 13px;
   color: var(--muted);
 }
-.item-sub {
-  font-size: 13px;
-  color: var(--muted);
-}
-
 .buy-btn {
   padding: 8px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #fff;
+  border: 1px solid var(--border-color);
+  background: var(--button-bg);
+  color: var(--text);
   cursor: pointer;
   font-weight: 600;
-  min-width: 120px;
-  transition: background 100ms ease, transform 60ms ease, box-shadow 120ms ease;
+  transition: background-color 100ms ease;
 }
 .buy-btn:hover {
-  background: #f1f5f9;
-  box-shadow: var(--shadow);
-}
-.buy-btn:active {
-  transform: translateY(1px);
+  background: var(--button-hover-bg);
 }
 .buy-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
-  background: #fff;
+  background: var(--button-bg);
 }
 
-/* ----- ACCESSIBILITY ----- */
-@media (prefers-reduced-motion: reduce) {
-  .iconWrap.pop {
-    animation: none;
-  }
+/* ----- COLUMN 3: STORE ----- */
+.store-placeholder {
+  flex-grow: 1;
+  display: grid;
+  place-content: center;
+  color: var(--muted);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
 }

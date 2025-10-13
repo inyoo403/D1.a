@@ -7,6 +7,7 @@ let lastRender = 0;
 
 const TICK_MS = 50;
 const RENDER_MS = 100;
+const PRICE_GROWTH = 1.15;
 
 /* ----- Types/Data ----- */
 interface Tech {
@@ -65,87 +66,90 @@ const technologies: Tech[] = [
 /* ----- Utilities ----- */
 const fmtInt = (n: number) => n.toLocaleString();
 const fmtNum = (n: number, f = 2) =>
-  n.toLocaleString(undefined, { maximumFractionDigits: f });
+  n.toLocaleString(undefined, {
+    minimumFractionDigits: f,
+    maximumFractionDigits: f,
+  });
 
-const currentPriceInt = (t: Tech) => t.baseCost;
+const currentPrice = (t: Tech) => t.baseCost * Math.pow(PRICE_GROWTH, t.count);
+
 const eps = () => technologies.reduce((s, t) => s + t.count * t.rate, 0);
 
 /* ----- UI Setup ----- */
-const app = document.createElement("div");
-app.className = "app";
-document.body.appendChild(app);
+const gameContainer = document.createElement("div");
+gameContainer.className = "game-container";
+document.body.appendChild(gameContainer);
+
+const columnLeft = document.createElement("div");
+columnLeft.className = "column column-left";
+const columnMiddle = document.createElement("div");
+columnMiddle.className = "column column-middle";
+const columnRight = document.createElement("div");
+columnRight.className = "column column-right";
+gameContainer.append(columnLeft, columnMiddle, columnRight);
 
 const title = document.createElement("h1");
-title.textContent = "🌍 Earth Clicker";
-app.appendChild(title);
-
+title.textContent = "Earth Clicker";
 const stats = document.createElement("div");
 stats.className = "stats";
-const statCount = document.createElement("div");
-const statRate = document.createElement("div");
-statRate.className = "muted";
-stats.append(statCount, statRate);
-app.appendChild(stats);
-
 const mainBtn = document.createElement("button");
 mainBtn.className = "main-btn";
 mainBtn.title = "Click to generate energy";
-
 const iconWrap = document.createElement("div");
 iconWrap.className = "iconWrap";
 const globe = document.createElement("div");
 globe.className = "globe spin";
 iconWrap.appendChild(globe);
 mainBtn.appendChild(iconWrap);
-app.appendChild(mainBtn);
+columnLeft.append(title, stats, mainBtn);
 
 const sectionTitle = document.createElement("div");
 sectionTitle.className = "section-title";
 sectionTitle.textContent = "Technological Advancements";
-app.appendChild(sectionTitle);
-
 const list = document.createElement("div");
 list.className = "list";
-app.appendChild(list);
+columnMiddle.append(sectionTitle, list);
 
 type ViewRefs = {
-  nameEl: HTMLDivElement;
-  descEl: HTMLDivElement;
+  btn: HTMLButtonElement;
   costEl: HTMLSpanElement;
   rateEl: HTMLSpanElement;
-  btn: HTMLButtonElement;
 };
 const views = new Map<string, ViewRefs>();
 
 for (const t of technologies) {
   const row = document.createElement("div");
   row.className = "row";
-
   const price = document.createElement("div");
   price.className = "price";
-
   const nameEl = document.createElement("div");
   nameEl.className = "item-name";
+  nameEl.textContent = t.name;
   const descEl = document.createElement("div");
   descEl.className = "item-desc";
+  descEl.textContent = t.description;
   const sub = document.createElement("div");
   sub.className = "item-sub";
-
   const costEl = document.createElement("span");
   const sep = document.createElement("span");
   sep.textContent = " · ";
   const rateEl = document.createElement("span");
-
   sub.append(costEl, sep, rateEl);
   price.append(nameEl, descEl, sub);
-
   const btn = document.createElement("button");
   btn.className = "buy-btn";
-
   row.append(price, btn);
   list.appendChild(row);
-  views.set(t.key, { nameEl, descEl, costEl, rateEl, btn });
+  views.set(t.key, { btn, costEl, rateEl });
 }
+
+const storeTitle = document.createElement("div");
+storeTitle.className = "section-title";
+storeTitle.textContent = "Item Store";
+const storeContent = document.createElement("div");
+storeContent.className = "store-placeholder";
+storeContent.textContent = "Special items coming soon!";
+columnRight.append(storeTitle, storeContent);
 
 /* ----- Sprite Animation ----- */
 type SpriteCfg = {
@@ -173,8 +177,12 @@ function startSprite(el: HTMLElement, cfg: SpriteCfg) {
     const idx = Math.floor((elapsed / cfg.durationMs) * cfg.total);
     const col = idx % cfg.cols;
     const row = Math.floor(idx / cfg.cols);
-    el.style.backgroundPosition =
-      `${-(col * cfg.frameW)}px ${-(row * cfg.frameH)}px`;
+
+    // THIS IS THE FIX: Calculate background position using percentages
+    const xPercent = (col / (cfg.cols - 1)) * 100;
+    const yPercent = (row / (cfg.rows - 1)) * 100;
+    el.style.backgroundPosition = `${xPercent}% ${yPercent}%`;
+
     id = requestAnimationFrame(loop);
   };
   id = requestAnimationFrame(loop);
@@ -194,7 +202,7 @@ mainBtn.addEventListener("click", () => {
 for (const t of technologies) {
   const v = views.get(t.key)!;
   v.btn.addEventListener("click", () => {
-    const cost = currentPriceInt(t);
+    const cost = currentPrice(t);
     if (energy >= cost) {
       energy -= cost;
       t.count += 1;
@@ -209,18 +217,16 @@ function render(now: number, force = false) {
   lastRender = now;
 
   const rate = eps();
-  statCount.textContent = `${fmtNum(energy, 2)} energy`;
-  statRate.textContent = `Global production: ${fmtNum(rate, 2)} energy / sec`;
+  stats.textContent = `${fmtNum(energy, 2)} energy (${fmtNum(rate, 2)}/sec)`;
 
   for (const t of technologies) {
     const v = views.get(t.key)!;
-    const cost = currentPriceInt(t);
+    const cost = currentPrice(t);
     const canBuy = energy >= cost;
+    const totalRateFromGroup = t.rate * t.count;
 
-    v.nameEl.textContent = t.name;
-    v.descEl.textContent = t.description;
-    v.costEl.textContent = `Cost: ${fmtInt(cost)}`;
-    v.rateEl.textContent = `+${fmtNum(t.rate)} energy/sec`;
+    v.costEl.textContent = `Cost: ${fmtNum(cost, 2)}`;
+    v.rateEl.textContent = `+${fmtNum(totalRateFromGroup, 2)} energy/sec`;
     v.btn.disabled = !canBuy;
     v.btn.textContent = `Advance (${fmtInt(t.count)})`;
   }
