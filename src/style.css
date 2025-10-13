@@ -166,7 +166,7 @@ html, body {
   transition: width 0.1s linear;
 }
 
-/* ----- COLUMN 2 & 3: UPGRADES & STORE ----- */
+/* ----- COLUMN 2 & 3: UPGRADES AND STORE ----- */
 .list {
   display: flex;
   flex-direction: column;
@@ -174,7 +174,7 @@ html, body {
 }
 .row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 140px;
   align-items: center;
   gap: 16px;
   padding: 12px;
@@ -194,7 +194,7 @@ html, body {
 }
 .level-display {
   font-weight: 600;
-  color: #c7d2fe;
+  color: #4338ca;
   margin-left: 8px;
 }
 
@@ -213,6 +213,8 @@ html, body {
   cursor: pointer;
   font-weight: 600;
   transition: background-color 100ms ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 .buy-btn:hover, .upgrade-btn:hover {
   background: var(--button-hover-bg);
@@ -241,4 +243,27 @@ html, body {
   text-align: center;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
+}
+
+.floating-text {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  animation: float-up 1.5s ease-out forwards;
+}
+
+@keyframes float-up {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -100px);
+    opacity: 0;
+  }
 }

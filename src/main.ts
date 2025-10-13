@@ -85,31 +85,50 @@ const storeItems: StoreItem[] = [
   {
     key: "autoclicker_bot",
     name: "Auto-Clicker Bot",
-    baseCost: 100000,
+    baseCost: 1000,
     description:
-      "For 1 minute, holding the mouse on the globe triggers continuous clicks.",
+      "For 1 minute, activates a bot that clicks rapidly. Upgrades increase its speed and power.",
     level: 1,
     upgradeCost: 500000,
   },
   {
     key: "planetary_relocation",
-    name: "Planetary Relocation",
-    baseCost: 1000,
+    name: "Relocation",
+    baseCost: 25000,
     description:
-      "Relocate to other planet, boosting all production and doubling click power.",
+      "Relocate to other planet, boosting EPS by 5% and doubling click power.",
     level: 0,
-    effectPerLevel: 0.20,
+    effectPerLevel: 0.05,
     spriteClasses: ["earth", "mars"],
   },
 ];
 
 /* ----- Utilities & Calculations ----- */
+const SUFFIXES = [
+  "",
+  "K",
+  "M",
+  "B",
+  "T",
+  "Qa",
+  "Qi",
+  "Sx",
+  "Sp",
+  "Oc",
+  "No",
+  "De",
+];
+function formatBigNumber(n: number): string {
+  if (n < 1000) {
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  const tier = Math.floor(Math.log10(n) / 3);
+  if (tier >= SUFFIXES.length) return n.toExponential(2);
+  const scaled = n / Math.pow(1000, tier);
+  return scaled.toFixed(2) + SUFFIXES[tier];
+}
+
 const fmtInt = (n: number) => n.toLocaleString();
-const fmtNum = (n: number, f = 2) =>
-  n.toLocaleString(undefined, {
-    minimumFractionDigits: f,
-    maximumFractionDigits: f,
-  });
 
 const currentTechPrice = (t: Tech) =>
   t.baseCost * Math.pow(PRICE_GROWTH, t.count);
@@ -121,7 +140,6 @@ const currentItemPrice = (item: StoreItem) => {
   return item.baseCost;
 };
 
-// This central function updates eps and epc whenever an upgrade is purchased.
 function updateCalculations() {
   const baseEps = technologies.reduce((s, t) => s + t.count * t.rate, 0);
   const relocation = storeItems.find((i) => i.key === "planetary_relocation")!;
@@ -152,7 +170,7 @@ const columnRight = document.createElement("div");
 columnRight.className = "column column-right";
 gameContainer.append(columnLeft, columnMiddle, columnRight);
 const title = document.createElement("h1");
-title.textContent = "Earth Clicker";
+title.textContent = "Planet Clicker";
 const stats = document.createElement("div");
 stats.className = "stats";
 const statTotal = document.createElement("div");
@@ -177,7 +195,6 @@ const timerBarFill = document.createElement("div");
 timerBarFill.className = "timer-bar-fill";
 timerBarContainer.appendChild(timerBarFill);
 columnLeft.append(title, stats, mainBtn, timerBarContainer);
-
 type TechViewRefs = {
   btn: HTMLButtonElement;
   costEl: HTMLSpanElement;
@@ -194,7 +211,6 @@ type StoreViewRefs = {
   upgradeBtn?: HTMLButtonElement;
 };
 const storeViews = new Map<string, StoreViewRefs>();
-
 function setupColumns() {
   const techList = document.createElement("div");
   techList.className = "list";
@@ -330,13 +346,46 @@ function startSprite(el: HTMLElement, cfg: SpriteCfg) {
 startSprite(globe, SPRITE);
 
 /* ----- Events ----- */
-mainBtn.addEventListener("click", () => {
-  eT += epc;
+function showFloatingText(amount: number, x: number, y: number) {
+  const textEl = document.createElement("div");
+  textEl.className = "floating-text";
+  textEl.textContent = `+${formatBigNumber(amount)}`;
+  const rect = columnLeft.getBoundingClientRect();
+  textEl.style.left = `${x - rect.left}px`;
+  textEl.style.top = `${y - rect.top}px`;
+  columnLeft.appendChild(textEl);
+  textEl.addEventListener("animationend", () => {
+    textEl.remove();
+  });
+}
+
+mainBtn.addEventListener("click", (e: MouseEvent) => {
+  let clickValue = epc;
+  if (performance.now() < timedAutoclickerEndTime) {
+    const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
+    const autoclickerPowerMultiplier = 1 + (autoclicker.level - 1) * 0.1;
+    clickValue *= autoclickerPowerMultiplier;
+  }
+
+  eT += clickValue;
+
+  let x: number, y: number;
+
+  if (e.isTrusted) {
+    x = e.clientX;
+    y = e.clientY;
+  } else {
+    const rect = mainBtn.getBoundingClientRect();
+    x = rect.left + Math.random() * rect.width;
+    y = rect.top + Math.random() * rect.height;
+  }
+
+  showFloatingText(clickValue, x, y);
+
   iconWrap.classList.remove("pop");
   void iconWrap.offsetWidth;
   iconWrap.classList.add("pop");
 });
-
 let cheatClickCount = 0;
 let cheatTimeout: number;
 title.addEventListener("click", () => {
@@ -388,12 +437,15 @@ document.querySelector(".column-right .list")!.addEventListener(
       if (eT < cost) return;
       eT -= cost;
       if (action === "purchase") {
-        timedAutoclickerEndTime = performance.now() +
-          1 * 60 * 1000;
+        timedAutoclickerEndTime = performance.now() + 1 * 60 * 1000;
       } else if (action === "upgrade") {
         item.level++;
         item.upgradeCost = Math.floor(item.upgradeCost! * UPGRADE_PRICE_GROWTH);
         item.baseCost = Math.floor(item.baseCost * 1.2);
+        if (autoclickerIntervalId !== null) {
+          stopAutoclicker();
+          startAutoclicker();
+        }
       }
     } else if (item.key === "planetary_relocation") {
       if (item.level > 0) return;
@@ -401,8 +453,8 @@ document.querySelector(".column-right .list")!.addEventListener(
       if (eT < cost) return;
       eT -= cost;
       item.level = 1;
-      currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
       epcMultiplier = 2;
+      currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
     }
     updateCalculations();
     render(performance.now(), true);
@@ -414,10 +466,10 @@ function updateTechRows() {
   for (const tech of technologies) {
     const v = techViews.get(tech.key)!;
     const cost = currentTechPrice(tech);
-    v.costEl.textContent = `Cost: ${fmtNum(cost, 2)}`;
-    v.rateEl.textContent = `+${fmtNum(tech.rate * tech.count, 2)} energy/sec`;
+    v.costEl.textContent = `Cost: ${formatBigNumber(cost)}`;
+    v.rateEl.textContent = `+${formatBigNumber(tech.rate * tech.count)}/sec`;
     v.btn.disabled = eT < cost;
-    v.btn.textContent = `Advance (${fmtInt(tech.count)})`;
+    v.btn.textContent = `Upgrade (${fmtInt(tech.count)})`;
   }
 }
 function updateStoreRows() {
@@ -426,22 +478,29 @@ function updateStoreRows() {
     v.nameEl.textContent = item.name;
     v.descEl.textContent = item.description;
     if (item.key === "autoclicker_bot") {
-      v.costSpan.textContent = `Cost: ${fmtInt(item.baseCost)}`;
+      v.costSpan.textContent = `Cost: ${formatBigNumber(item.baseCost)}`;
       v.levelSpan.textContent = `Lv. ${item.level}`;
       v.purchaseBtn.disabled = eT < item.baseCost;
       if (v.upgradeBtn) {
-        v.upgradeBtn.textContent = `Upgrade (${fmtInt(item.upgradeCost!)})`;
+        v.upgradeBtn.textContent = `Upgrade (${
+          formatBigNumber(item.upgradeCost!)
+        })`;
         v.upgradeBtn.disabled = eT < item.upgradeCost!;
       }
     } else if (item.key === "planetary_relocation") {
       const cost = currentItemPrice(item);
-      v.costSpan.textContent = ``;
-      v.levelSpan.textContent = "";
-      v.purchaseBtn.textContent = `Relocate (${fmtInt(cost)})`;
       v.purchaseBtn.disabled = eT < cost || item.level > 0;
+
       if (item.level > 0) {
+        // After being purchased
         v.purchaseBtn.textContent = `Relocated!`;
         v.row.style.opacity = "0.5";
+        v.costSpan.textContent = "";
+        v.levelSpan.textContent = "";
+      } else {
+        v.purchaseBtn.textContent = `Relocate`;
+        v.costSpan.textContent = `Cost: ${formatBigNumber(cost)}`;
+        v.levelSpan.textContent = "";
       }
     }
   }
@@ -450,13 +509,13 @@ function render(now: number, force = false) {
   if (!force && now - lastRender < RENDER_MS) return;
   lastRender = now;
 
-  statTotal.textContent = `${fmtNum(eT, 2)} energy`;
-  statEps.textContent = `EPS: ${fmtNum(eps, 2)}/sec`;
-  statEpc.textContent = `EPC: ${fmtNum(epc, 2)}`;
-
-  globe.className = `globe spin ${currentPlanetSprite}`;
+  let displayedEpc = epc;
   const remainingTime = timedAutoclickerEndTime - now;
   if (remainingTime > 0) {
+    const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
+    const autoclickerPowerMultiplier = 1 + (autoclicker.level - 1) * 0.1;
+    displayedEpc *= autoclickerPowerMultiplier;
+
     iconWrap.classList.add("sparkling");
     timerBarContainer.style.display = "block";
     timerBarFill.style.width = `${(remainingTime / (1 * 60 * 1000)) * 100}%`;
@@ -464,6 +523,13 @@ function render(now: number, force = false) {
     iconWrap.classList.remove("sparkling");
     timerBarContainer.style.display = "none";
   }
+
+  statTotal.textContent = `${formatBigNumber(eT)} energy`;
+  statEps.textContent = `EPS: ${formatBigNumber(eps)}`;
+  statEpc.textContent = `EPC: ${formatBigNumber(displayedEpc)}`;
+
+  globe.className = `globe spin ${currentPlanetSprite}`;
+
   updateTechRows();
   updateStoreRows();
 }
