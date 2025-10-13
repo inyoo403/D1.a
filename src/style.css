@@ -1,12 +1,22 @@
+/* ----- THEME ----- */
 :root {
   --bg: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
   --border: #cbd5e1;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --brand: #00449f;
+  --frame-w: 100px;
+  --frame-h: 100px;
+  --cols: 30;
+  --rows: 10;
+  --frames: 300;
+  --spin-duration: 20000ms;
 }
 
-html, body {
+/* ----- BASE ----- */
+html,
+body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
@@ -19,33 +29,32 @@ html, body {
     Arial,
     sans-serif;
 }
-
 .app {
   max-width: 720px;
   margin: 32px auto;
   padding: 0 16px;
   text-align: center;
 }
+.muted {
+  color: var(--muted);
+}
 
+/* ----- STATS ----- */
 .stats {
-  margin: 8px 0;
+  margin: 8px 0 0;
   font-size: 18px;
 }
-
-.section-title {
-  margin: 28px 0 12px;
-  font-weight: 700;
-  font-size: 20px;
+.stats strong {
+  color: var(--brand);
 }
 
+/* ----- MAIN BUTTON ----- */
 .main-btn {
   background: none;
   border: none;
   padding: 0;
-  margin: 12px 0;
+  margin: 12px 0 4px;
   cursor: pointer;
-  font-size: 140px;
-  line-height: 1;
   user-select: none;
   transition: transform 60ms ease;
 }
@@ -53,18 +62,93 @@ html, body {
   transform: scale(1.05);
 }
 .main-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.98);
 }
 
-.row {
-  display: inline-flex;
-  align-items: center;
+/* ----- SPRITE LAYERS ----- */
+.iconWrap {
+  display: inline-block;
+  width: var(--frame-w);
+  height: var(--frame-h);
+  will-change: transform;
+}
+
+.globe {
+  width: 100%;
+  height: 100%;
+  background-image: url("/sprites/earth.png");
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: calc(var(--cols) * var(--frame-w))
+    calc(var(--rows) * var(--frame-h));
+  image-rendering: pixelated;
+  pointer-events: none;
+  will-change: background-position;
+}
+
+@keyframes popOnce {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.iconWrap.pop {
+  animation: popOnce 180ms ease-out;
+}
+
+/* ----- UPGRADE LIST ----- */
+.section-title {
+  margin: 28px 0 12px;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.list {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-sizing: border-box;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.row:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
 .price {
-  min-width: 140px;
-  text-align: right;
+  text-align: left;
+}
+.item-name {
+  font-weight: 600;
+}
+.item-desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+.item-sub {
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -72,8 +156,10 @@ html, body {
   padding: 8px 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: #fff;
   cursor: pointer;
+  font-weight: 600;
+  min-width: 120px;
   transition: background 100ms ease, transform 60ms ease, box-shadow 120ms ease;
 }
 .buy-btn:hover {
@@ -84,7 +170,15 @@ html, body {
   transform: translateY(1px);
 }
 .buy-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
+  background: #fff;
+}
+
+/* ----- ACCESSIBILITY ----- */
+@media (prefers-reduced-motion: reduce) {
+  .iconWrap.pop {
+    animation: none;
+  }
 }
