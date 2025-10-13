@@ -31,7 +31,6 @@ html, body {
   box-sizing: border-box;
 }
 
-/* ----- THE GLASS PANELS ----- */
 .column {
   background: var(--panel-bg);
   backdrop-filter: blur(12px);
@@ -65,10 +64,19 @@ html, body {
   position: relative;
 }
 .stats {
-  font-size: 24px;
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   margin: 16px 0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-weight: 500;
+}
+.stat-total {
+  font-size: 24px;
+}
+.stat-eps, .stat-epc {
+  font-size: 16px;
+  color: var(--muted);
 }
 .main-btn {
   background: none;
@@ -105,7 +113,12 @@ html, body {
   background-position: 0 0;
   background-size: 3000% 1000%;
   image-rendering: pixelated;
+  transition: background-image 0.5s ease-in-out;
 }
+.globe.mars {
+  background-image: url("/sprites/mars.png");
+}
+
 @keyframes popOnce {
   0% {
     transform: scale(1);
@@ -124,7 +137,36 @@ html, body {
   animation: popOnce 180ms ease-out;
 }
 
-/* ----- COLUMN 2: UPGRADES ----- */
+@keyframes sparkle {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 1));
+  }
+}
+.iconWrap.sparkling {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.timer-bar-container {
+  width: 80%;
+  height: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  margin-top: 20px;
+  display: none;
+}
+.timer-bar-fill {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  border-radius: 4px;
+  transition: width 0.1s linear;
+}
+
+/* ----- COLUMN 2 & 3: UPGRADES & STORE ----- */
 .list {
   display: flex;
   flex-direction: column;
@@ -150,7 +192,19 @@ html, body {
   font-size: 13px;
   color: var(--muted);
 }
-.buy-btn {
+.level-display {
+  font-weight: 600;
+  color: #c7d2fe;
+  margin-left: 8px;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.buy-btn, .upgrade-btn {
   padding: 8px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -160,16 +214,25 @@ html, body {
   font-weight: 600;
   transition: background-color 100ms ease;
 }
-.buy-btn:hover {
+.buy-btn:hover, .upgrade-btn:hover {
   background: var(--button-hover-bg);
 }
-.buy-btn:disabled {
+.buy-btn:disabled, .upgrade-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--button-bg);
 }
+.upgrade-btn {
+  border: 1px solid #a5b4fc;
+  background: #4338ca;
+}
+.upgrade-btn:hover {
+  background: #4f46e5;
+}
+.upgrade-btn:disabled {
+  background: #4338ca;
+}
 
-/* ----- COLUMN 3: STORE ----- */
 .store-placeholder {
   flex-grow: 1;
   display: grid;
