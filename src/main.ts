@@ -130,6 +130,26 @@ const storeItems: StoreItem[] = [
   },
 ];
 
+/* ----- DOM Utility ----- */
+function createElement<Tag extends keyof HTMLElementTagNameMap>(
+  tag: Tag,
+  props?: {
+    className?: string;
+    textContent?: string;
+    dataset?: Record<string, string>;
+  },
+): HTMLElementTagNameMap[Tag] {
+  const el = document.createElement(tag);
+  if (props?.className) el.className = props.className;
+  if (props?.textContent) el.textContent = props.textContent;
+  if (props?.dataset) {
+    for (const [key, val] of Object.entries(props.dataset)) {
+      (el.dataset as DOMStringMap)[key] = val;
+    }
+  }
+  return el;
+}
+
 /* ----- Utilities & Calculations ----- */
 const SUFFIXES = [
   "",
@@ -253,33 +273,51 @@ type StoreViewRefs = {
 };
 const storeViews = new Map<string, StoreViewRefs>();
 function setupColumns() {
-  const techList = document.createElement("div");
-  techList.className = "list";
-  const storeList = document.createElement("div");
-  storeList.className = "list";
+  const techList = createElement("div", { className: "list" });
+  const storeList = createElement("div", { className: "list" });
+
   columnMiddle.append(
-    Object.assign(document.createElement("div"), {
+    createElement("div", {
       className: "section-title",
       textContent: "Technological Advancements",
     }),
     techList,
   );
+
   columnRight.append(
-    Object.assign(document.createElement("div"), {
+    createElement("div", {
       className: "section-title",
       textContent: "Item Store",
     }),
     storeList,
   );
+
+  // --- Technologies ---
   for (const tech of technologies) {
-    const row = document.createElement("div");
-    row.className = "row";
-    const info = document.createElement("div");
-    info.className = "price";
-    info.innerHTML =
-      `<div class="item-name">${tech.name}</div><div class="item-desc">${tech.description}</div><div class="item-sub"><span></span> · <span></span></div>`;
-    const btn = document.createElement("button");
-    btn.className = "buy-btn";
+    const row = createElement("div", { className: "row" });
+    const info = createElement("div", { className: "price" });
+
+    const nameEl = createElement("div", {
+      className: "item-name",
+      textContent: tech.name,
+    });
+    const descEl = createElement("div", {
+      className: "item-desc",
+      textContent: tech.description,
+    });
+    const sub = createElement("div", { className: "item-sub" });
+    const costSpan = createElement("span");
+    const sepNode = document.createTextNode(" · ");
+    const rateSpan = createElement("span");
+    sub.append(costSpan, sepNode, rateSpan);
+
+    info.append(nameEl, descEl, sub);
+
+    const btn = createElement("button", {
+      className: "buy-btn",
+      textContent: `Upgrade (${fmtInt(tech.count)})`,
+    }) as HTMLButtonElement;
+
     btn.addEventListener("click", () => {
       const cost = calcTechCost(tech);
       if (energyTotal >= cost) {
@@ -289,55 +327,57 @@ function setupColumns() {
         render(performance.now(), true);
       }
     });
+
     row.append(info, btn);
     techList.appendChild(row);
+
     techViews.set(tech.key, {
       btn,
-      costEl: info.querySelector(".item-sub span:first-child")!,
-      rateEl: info.querySelector(".item-sub span:last-child")!,
+      costEl: costSpan,
+      rateEl: rateSpan,
     });
   }
+
+  // --- Store Items ---
   for (const item of storeItems) {
-    const row = document.createElement("div");
-    row.className = "row";
-    const info = document.createElement("div");
-    info.className = "price";
-    const nameEl = Object.assign(document.createElement("div"), {
-      className: "item-name",
-    });
-    const descEl = Object.assign(document.createElement("div"), {
-      className: "item-desc",
-    });
-    const sub = document.createElement("div");
-    sub.className = "item-sub";
-    const costSpan = document.createElement("span");
-    const levelSpan = Object.assign(document.createElement("span"), {
-      className: "level-display",
-    });
+    const row = createElement("div", { className: "row" });
+    const info = createElement("div", { className: "price" });
+
+    const nameEl = createElement("div", { className: "item-name" });
+    const descEl = createElement("div", { className: "item-desc" });
+
+    const sub = createElement("div", { className: "item-sub" });
+    const costSpan = createElement("span");
+    const levelSpan = createElement("span", { className: "level-display" });
     sub.append(costSpan, levelSpan);
+
     info.append(nameEl, descEl, sub);
-    const purchaseBtn = document.createElement("button");
+
+    const purchaseBtn = createElement("button", {
+      className: "buy-btn store-btn",
+      dataset: { action: "purchase", itemKey: item.key },
+    }) as HTMLButtonElement;
+
     let upgradeBtn: HTMLButtonElement | undefined;
+
     if (item.key === "autoclicker_bot") {
-      const buttonGroup = document.createElement("div");
-      buttonGroup.className = "button-group";
-      purchaseBtn.className = "buy-btn store-btn";
       purchaseBtn.textContent = "Activate";
-      purchaseBtn.dataset.action = "purchase";
-      purchaseBtn.dataset.itemKey = item.key;
-      upgradeBtn = document.createElement("button");
-      upgradeBtn.className = "upgrade-btn";
-      upgradeBtn.dataset.action = "upgrade";
-      upgradeBtn.dataset.itemKey = item.key;
+
+      const buttonGroup = createElement("div", { className: "button-group" });
+
+      upgradeBtn = createElement("button", {
+        className: "upgrade-btn",
+        dataset: { action: "upgrade", itemKey: item.key },
+      }) as HTMLButtonElement;
+
       buttonGroup.append(purchaseBtn, upgradeBtn);
       row.append(info, buttonGroup);
     } else {
-      purchaseBtn.className = "buy-btn store-btn";
-      purchaseBtn.dataset.action = "purchase";
-      purchaseBtn.dataset.itemKey = item.key;
       row.append(info, purchaseBtn);
     }
+
     storeList.appendChild(row);
+
     storeViews.set(item.key, {
       row,
       nameEl,
