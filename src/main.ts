@@ -17,15 +17,17 @@ const TICK_MS = 50;
 const RENDER_MS = 100;
 
 const CLICK_BASE = 1;
-const CLICK_FROM_EPS_RATIO = 0.15;
 const CLICK_TOOL_PER_LEVEL = 0.5;
 const GLOBAL_PROD_MULT_PER_RELOC = 0.05;
 const TECH_PRICE_GROWTH = 1.15;
 const ITEM_PRICE_GROWTH_DEFAULT = 2;
 
-const AUTOCLICK_BASE_DELAY_MS = 100;
 const AUTOCLICK_DURATION_BASE_MS = 30_000;
-const AUTOCLICK_DURATION_PER_LEVEL = 0.15;
+
+const UPGRADE_DURATION_INCREMENT = 0.15; // Auto-click duration increase per level
+const UPGRADE_BASE_DELAY_MS = 100; // Base delay in milliseconds
+const PERFORMANCE_BOOST_MULTIPLIER = 1.5; // Speed multiplier per upgrade level
+const ENERGY_FROM_EPS_RATIO = 0.15; // EPC contribution from EPS
 
 /* ----- Types/Data ----- */
 interface Tech {
@@ -173,20 +175,23 @@ function recalcProduction() {
 
   const clickTools = storeItems.find((i) => i.key === "click_tools")!;
   const clickToolsBonus = clickTools.level * (clickTools.effectPerLevel ?? 0);
-  const fromEps = energyPerSec * CLICK_FROM_EPS_RATIO;
+  const fromEps = energyPerSec * ENERGY_FROM_EPS_RATIO;
   energyPerClick = (CLICK_BASE + clickToolsBonus + fromEps) *
     clickPowerMultiplier;
 }
 
 const getAutoClickDelay = () => {
   const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
-  const performanceMultiplier = Math.pow(1.5, autoclicker.level - 1);
-  return Math.max(10, AUTOCLICK_BASE_DELAY_MS / performanceMultiplier);
+  const performanceMultiplier = Math.pow(
+    PERFORMANCE_BOOST_MULTIPLIER,
+    autoclicker.level - 1,
+  );
+  return Math.max(10, UPGRADE_BASE_DELAY_MS / performanceMultiplier);
 };
 
 const getAutoClickDurationMs = () => {
   const ac = storeItems.find((i) => i.key === "autoclicker_bot")!;
-  const mult = 1 + (AUTOCLICK_DURATION_PER_LEVEL * (ac.level - 1));
+  const mult = 1 + (UPGRADE_DURATION_INCREMENT * (ac.level - 1));
   return Math.floor(AUTOCLICK_DURATION_BASE_MS * mult);
 };
 
