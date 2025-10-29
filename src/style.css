@@ -74,7 +74,7 @@ html, body {
 .stat-total {
   font-size: 24px;
 }
-.stat-eps, .stat-epc {
+.stat-energyPerSec, .stat-energyPerClick {
   font-size: 16px;
   color: var(--muted);
 }
@@ -102,10 +102,13 @@ html, body {
   transform: translate(-50%, -50%) scale(0.98);
 }
 .iconWrap {
+  position: relative;
   width: 100%;
   height: 100%;
 }
 .globe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   background-image: url("/sprites/earth.png");
@@ -113,7 +116,8 @@ html, body {
   background-position: 0 0;
   background-size: 3000% 1000%;
   image-rendering: pixelated;
-  transition: background-image 0.5s ease-in-out;
+  will-change: opacity, background-position;
+  transition: opacity 500ms ease;
 }
 .globe.mars {
   background-image: url("/sprites/mars.png");

@@ -1,22 +1,31 @@
 import "./style.css";
 
 /* ----- Game State ----- */
-let eT = 0; // Energy Total
-let eps = 0; // Energy Per Second
-let epc = 1; // Energy Per Click
+let energyTotal = 0;
+let energyPerSec = 0;
+let energyPerClick = 1;
 
 let lastTick = performance.now();
 let lastRender = 0;
-let timedAutoclickerEndTime = 0;
-let autoclickerIntervalId: number | null = null;
+let autoClickerUntilMs = 0;
+let autoClickIntervalId: number | null = null;
 let isCheatActive = false;
 let currentPlanetSprite = "earth";
-let epcMultiplier = 1.0;
+const clickPowerMultiplier = 1.0;
 
 const TICK_MS = 50;
 const RENDER_MS = 100;
-const PRICE_GROWTH = 1.15;
-const UPGRADE_PRICE_GROWTH = 1.25;
+
+const CLICK_BASE = 1;
+const CLICK_FROM_EPS_RATIO = 0.15;
+const CLICK_TOOL_PER_LEVEL = 0.5;
+const GLOBAL_PROD_MULT_PER_RELOC = 0.05;
+const TECH_PRICE_GROWTH = 1.15;
+const ITEM_PRICE_GROWTH_DEFAULT = 2;
+
+const AUTOCLICK_BASE_DELAY_MS = 100;
+const AUTOCLICK_DURATION_BASE_MS = 30_000;
+const AUTOCLICK_DURATION_PER_LEVEL = 0.15;
 
 /* ----- Types/Data ----- */
 interface Tech {
@@ -27,6 +36,7 @@ interface Tech {
   description: string;
   count: number;
 }
+
 interface StoreItem {
   key: string;
   name: string;
@@ -36,70 +46,85 @@ interface StoreItem {
   upgradeCost?: number;
   effectPerLevel?: number;
   spriteClasses?: string[];
+  priceGrowth?: number;
+  maxLevel?: number;
 }
 
 const technologies: Tech[] = [
   {
     key: "fire",
     name: "Fire Discovery",
-    baseCost: 10,
+    baseCost: 15,
     rate: 0.1,
-    description: "The first spark of civilization (+0.1 energy/sec)",
+    description: "First spark of civilization (+0.1 energy/sec)",
     count: 0,
   },
   {
     key: "steam",
     name: "Steam Engine",
     baseCost: 100,
-    rate: 2.0,
-    description: "The Age of Steam—production speeds up (+2 energy/sec)",
+    rate: 1.0,
+    description: "Age of Steam (+1.0 energy/sec)",
     count: 0,
   },
   {
     key: "factory",
     name: "Factory Network",
-    baseCost: 1000,
-    rate: 50,
-    description:
-      "Industrial Revolution—mass production systems (+50 energy/sec)",
+    baseCost: 1100,
+    rate: 8.0,
+    description: "Industrial mass production (+8.0 energy/sec)",
     count: 0,
   },
   {
     key: "datacenter",
     name: "Data Center Grid",
     baseCost: 12000,
-    rate: 650,
-    description: "Information Age—AI-automated production (+650 energy/sec)",
+    rate: 47.0,
+    description: "AI-automated production (+47.0 energy/sec)",
     count: 0,
   },
   {
     key: "orbital",
     name: "Orbital Solar Array",
-    baseCost: 180000,
-    rate: 9200,
-    description: "Planetary-scale power grid (+9,200 energy/sec)",
+    baseCost: 130000,
+    rate: 260.0,
+    description: "Planetary-scale grid (+260.0 energy/sec)",
     count: 0,
   },
 ];
+
 const storeItems: StoreItem[] = [
   {
-    key: "autoclicker_bot",
-    name: "Auto-Clicker Bot",
-    baseCost: 1000,
+    key: "click_tools",
+    name: "Click Tools",
+    baseCost: 100,
     description:
-      "For 1 minute, activates a bot that clicks rapidly. Upgrades increase its speed and power.",
+      "Improve manual harvesting. Each level adds +0.5 EPC (before EPS share).",
+    level: 0,
+    effectPerLevel: CLICK_TOOL_PER_LEVEL,
+    priceGrowth: 1.7,
+  },
+  {
+    key: "autoclicker_bot",
+    name: "Burst Autoclick",
+    baseCost: 1200,
+    description:
+      "Activate a 30s burst of rapid clicks. Upgrade speeds up the burst.",
     level: 1,
-    upgradeCost: 500000,
+    upgradeCost: 8000,
+    priceGrowth: 1.25,
   },
   {
     key: "planetary_relocation",
-    name: "Relocation",
+    name: "Orbital Relocation",
     baseCost: 25000,
     description:
-      "Relocate to other planet, boosting EPS by 5% and doubling click power.",
+      "Migrate infrastructure. +5% global EPS, +EPS-linked click power. Stacks.",
     level: 0,
-    effectPerLevel: 0.05,
+    effectPerLevel: GLOBAL_PROD_MULT_PER_RELOC,
     spriteClasses: ["earth", "mars"],
+    priceGrowth: 2.0,
+    maxLevel: 5,
   },
 ];
 
@@ -118,44 +143,51 @@ const SUFFIXES = [
   "No",
   "De",
 ];
-function formatBigNumber(n: number): string {
+
+function fmtBig(n: number): string {
   if (n < 1000) {
     return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
   const tier = Math.floor(Math.log10(n) / 3);
   if (tier >= SUFFIXES.length) return n.toExponential(2);
   const scaled = n / Math.pow(1000, tier);
-  return scaled.toFixed(2) + SUFFIXES[tier];
+  return `${scaled.toFixed(2)}${SUFFIXES[tier]}`;
 }
 
 const fmtInt = (n: number) => n.toLocaleString();
 
-const currentTechPrice = (t: Tech) =>
-  t.baseCost * Math.pow(PRICE_GROWTH, t.count);
-const currentItemPrice = (item: StoreItem) => {
-  if (item.key === "autoclicker_bot") return item.upgradeCost ?? 0;
-  if (item.key === "planetary_relocation") {
-    return item.baseCost * Math.pow(2, item.level);
-  }
-  return item.baseCost;
+const calcTechCost = (t: Tech) =>
+  t.baseCost * Math.pow(TECH_PRICE_GROWTH, t.count);
+
+const calcItemCost = (item: StoreItem) => {
+  if (item.key === "autoclicker_bot") return item.baseCost;
+  const growth = item.priceGrowth ?? ITEM_PRICE_GROWTH_DEFAULT;
+  return Math.floor(item.baseCost * Math.pow(growth, item.level));
 };
 
-function updateCalculations() {
+function recalcProduction() {
   const baseEps = technologies.reduce((s, t) => s + t.count * t.rate, 0);
   const relocation = storeItems.find((i) => i.key === "planetary_relocation")!;
-  const epsMultiplier = 1.0 + (relocation.effectPerLevel! * relocation.level);
+  const globalMult = 1 + (relocation.effectPerLevel! * relocation.level);
+  energyPerSec = baseEps * globalMult;
 
-  eps = baseEps * epsMultiplier;
-
-  const baseEpc = 1 + (eps * 0.1);
-  epc = baseEpc * epcMultiplier;
+  const clickTools = storeItems.find((i) => i.key === "click_tools")!;
+  const clickToolsBonus = clickTools.level * (clickTools.effectPerLevel ?? 0);
+  const fromEps = energyPerSec * CLICK_FROM_EPS_RATIO;
+  energyPerClick = (CLICK_BASE + clickToolsBonus + fromEps) *
+    clickPowerMultiplier;
 }
 
-const getAutoclickerDelay = () => {
+const getAutoClickDelay = () => {
   const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
-  const baseDelay = 100;
   const performanceMultiplier = Math.pow(1.5, autoclicker.level - 1);
-  return Math.max(10, baseDelay / performanceMultiplier);
+  return Math.max(10, AUTOCLICK_BASE_DELAY_MS / performanceMultiplier);
+};
+
+const getAutoClickDurationMs = () => {
+  const ac = storeItems.find((i) => i.key === "autoclicker_bot")!;
+  const mult = 1 + (AUTOCLICK_DURATION_PER_LEVEL * (ac.level - 1));
+  return Math.floor(AUTOCLICK_DURATION_BASE_MS * mult);
 };
 
 /* ----- UI Setup ----- */
@@ -176,17 +208,21 @@ stats.className = "stats";
 const statTotal = document.createElement("div");
 statTotal.className = "stat-total";
 const statEps = document.createElement("div");
-statEps.className = "stat-eps";
+statEps.className = "stat-energyPerSec";
 const statEpc = document.createElement("div");
-statEpc.className = "stat-epc";
+statEpc.className = "stat-energyPerClick";
 stats.append(statTotal, statEps, statEpc);
 const mainBtn = document.createElement("button");
 mainBtn.className = "main-btn";
 mainBtn.title = "Click to generate energy";
 const iconWrap = document.createElement("div");
 iconWrap.className = "iconWrap";
-const globe = document.createElement("div");
-globe.className = "globe spin";
+iconWrap.style.position = "relative";
+let globe = document.createElement("div");
+globe.className = "globe spin " + currentPlanetSprite;
+globe.style.position = "absolute";
+globe.style.inset = "0";
+globe.style.opacity = "1";
 iconWrap.appendChild(globe);
 mainBtn.appendChild(iconWrap);
 const timerBarContainer = document.createElement("div");
@@ -240,11 +276,11 @@ function setupColumns() {
     const btn = document.createElement("button");
     btn.className = "buy-btn";
     btn.addEventListener("click", () => {
-      const cost = currentTechPrice(tech);
-      if (eT >= cost) {
-        eT -= cost;
+      const cost = calcTechCost(tech);
+      if (energyTotal >= cost) {
+        energyTotal -= cost;
         tech.count += 1;
-        updateCalculations();
+        recalcProduction();
         render(performance.now(), true);
       }
     });
@@ -319,6 +355,7 @@ type SpriteCfg = {
   total: number;
   durationMs: number;
 };
+
 const SPRITE: SpriteCfg = {
   frameW: 100,
   frameH: 100,
@@ -327,9 +364,14 @@ const SPRITE: SpriteCfg = {
   total: 300,
   durationMs: 20000,
 };
-function startSprite(el: HTMLElement, cfg: SpriteCfg) {
+
+let stopSprite: (() => void) | null = null;
+let spriteStartMs = performance.now();
+function startSprite(el: HTMLElement, cfg: SpriteCfg, startAtMs?: number) {
   let id = 0;
-  const start = performance.now();
+  const start = startAtMs ?? performance.now();
+  spriteStartMs = start;
+
   const loop = (t: number) => {
     const elapsed = (t - start) % cfg.durationMs;
     const idx = Math.floor((elapsed / cfg.durationMs) * cfg.total);
@@ -340,16 +382,50 @@ function startSprite(el: HTMLElement, cfg: SpriteCfg) {
     }%`;
     id = requestAnimationFrame(loop);
   };
+
   id = requestAnimationFrame(loop);
   return () => cancelAnimationFrame(id);
 }
-startSprite(globe, SPRITE);
+
+stopSprite = startSprite(globe, SPRITE, spriteStartMs);
+function setPlanetSprite(nextClass: string) {
+  const oldEl = globe;
+  const prevStop = stopSprite;
+
+  const newEl = document.createElement("div");
+  newEl.className = "globe spin " + nextClass;
+  newEl.style.position = "absolute";
+  newEl.style.inset = "0";
+  newEl.style.opacity = "0";
+  newEl.style.willChange = "opacity, background-position";
+  oldEl.style.willChange = "opacity, background-position";
+
+  newEl.style.transition = "opacity 500ms ease";
+  oldEl.style.transition = "opacity 500ms ease";
+
+  iconWrap.appendChild(newEl);
+  stopSprite = startSprite(newEl, SPRITE, spriteStartMs);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      newEl.style.opacity = "1";
+      oldEl.style.opacity = "0";
+    });
+  });
+  const onDone = () => {
+    if (prevStop) prevStop();
+    iconWrap.removeChild(oldEl);
+    globe = newEl;
+    newEl.removeEventListener("transitionend", onDone);
+  };
+  newEl.addEventListener("transitionend", onDone, { once: true });
+}
 
 /* ----- Events ----- */
 function showFloatingText(amount: number, x: number, y: number) {
   const textEl = document.createElement("div");
   textEl.className = "floating-text";
-  textEl.textContent = `+${formatBigNumber(amount)}`;
+  textEl.textContent = `+${fmtBig(amount)}`;
   const rect = columnLeft.getBoundingClientRect();
   textEl.style.left = `${x - rect.left}px`;
   textEl.style.top = `${y - rect.top}px`;
@@ -360,17 +436,16 @@ function showFloatingText(amount: number, x: number, y: number) {
 }
 
 mainBtn.addEventListener("click", (e: MouseEvent) => {
-  let clickValue = epc;
-  if (performance.now() < timedAutoclickerEndTime) {
+  let clickValue = energyPerClick;
+  if (performance.now() < autoClickerUntilMs) {
     const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
     const autoclickerPowerMultiplier = 1 + (autoclicker.level - 1) * 0.1;
     clickValue *= autoclickerPowerMultiplier;
   }
 
-  eT += clickValue;
+  energyTotal += clickValue;
 
   let x: number, y: number;
-
   if (e.isTrusted) {
     x = e.clientX;
     y = e.clientY;
@@ -379,45 +454,58 @@ mainBtn.addEventListener("click", (e: MouseEvent) => {
     x = rect.left + Math.random() * rect.width;
     y = rect.top + Math.random() * rect.height;
   }
-
   showFloatingText(clickValue, x, y);
 
   iconWrap.classList.remove("pop");
   void iconWrap.offsetWidth;
   iconWrap.classList.add("pop");
 });
+
 let cheatClickCount = 0;
 let cheatTimeout: number;
+
 title.addEventListener("click", () => {
   cheatClickCount++;
   clearTimeout(cheatTimeout);
   cheatTimeout = setTimeout(() => {
     cheatClickCount = 0;
   }, 1000);
+
   if (cheatClickCount >= 5) {
     isCheatActive = !isCheatActive;
-    eT = isCheatActive ? Infinity : 0;
+    energyTotal = isCheatActive ? Infinity : 0;
     console.log(`Cheat ${isCheatActive ? "activated" : "deactivated"}`);
     cheatClickCount = 0;
   }
 });
 
 const startAutoclicker = () => {
-  if (
-    performance.now() < timedAutoclickerEndTime &&
-    autoclickerIntervalId === null
-  ) {
-    autoclickerIntervalId = setInterval(() => {
-      mainBtn.click();
-    }, getAutoclickerDelay());
+  const now = performance.now();
+  const remainingTime = autoClickerUntilMs - now;
+  if (remainingTime <= 0) {
+    stopAutoclicker();
+    return;
   }
+
+  if (autoClickIntervalId !== null) return;
+
+  autoClickIntervalId = setInterval(() => {
+    const nowTick = performance.now();
+    if (nowTick >= autoClickerUntilMs) {
+      stopAutoclicker();
+      return;
+    }
+    mainBtn.click();
+  }, getAutoClickDelay());
 };
+
 const stopAutoclicker = () => {
-  if (autoclickerIntervalId !== null) {
-    clearInterval(autoclickerIntervalId);
-    autoclickerIntervalId = null;
+  if (autoClickIntervalId !== null) {
+    clearInterval(autoClickIntervalId);
+    autoClickIntervalId = null;
   }
 };
+
 mainBtn.addEventListener("mousedown", startAutoclicker);
 mainBtn.addEventListener("mouseup", stopAutoclicker);
 mainBtn.addEventListener("mouseleave", stopAutoclicker);
@@ -427,36 +515,65 @@ document.querySelector(".column-right .list")!.addEventListener(
   (e) => {
     const target = e.target as HTMLButtonElement;
     const itemKey = target.dataset.itemKey;
-    const action = target.dataset.action;
-    if (!itemKey || !action) return;
+    const action = target.dataset.action ?? "purchase";
+    if (!itemKey) return;
+
     const item = storeItems.find((i) => i.key === itemKey);
     if (!item) return;
 
     if (item.key === "autoclicker_bot") {
-      const cost = action === "purchase" ? item.baseCost : item.upgradeCost!;
-      if (eT < cost) return;
-      eT -= cost;
       if (action === "purchase") {
-        timedAutoclickerEndTime = performance.now() + 1 * 60 * 1000;
-      } else if (action === "upgrade") {
-        item.level++;
-        item.upgradeCost = Math.floor(item.upgradeCost! * UPGRADE_PRICE_GROWTH);
-        item.baseCost = Math.floor(item.baseCost * 1.2);
-        if (autoclickerIntervalId !== null) {
+        const cost = item.baseCost;
+        if (energyTotal < cost) return;
+        energyTotal -= cost;
+
+        const nowTs = performance.now();
+        autoClickerUntilMs = nowTs + getAutoClickDurationMs();
+
+        if (autoClickIntervalId !== null) {
           stopAutoclicker();
           startAutoclicker();
         }
+      } else if (action === "upgrade") {
+        const upCost = item.upgradeCost ?? 0;
+        if (energyTotal < upCost) return;
+        energyTotal -= upCost;
+
+        const wasActive = performance.now() < autoClickerUntilMs;
+        const nowTs = performance.now();
+        const oldDuration = getAutoClickDurationMs();
+
+        item.level++;
+        const grow = item.priceGrowth ?? 1.25;
+        item.upgradeCost = Math.floor((item.upgradeCost ?? upCost) * grow);
+
+        if (wasActive) {
+          const remainingFrac = Math.max(
+            0,
+            (autoClickerUntilMs - nowTs) / oldDuration,
+          );
+          const newDuration = getAutoClickDurationMs();
+          autoClickerUntilMs = nowTs + remainingFrac * newDuration;
+
+          if (autoClickIntervalId !== null) {
+            stopAutoclicker();
+            startAutoclicker();
+          }
+        }
       }
-    } else if (item.key === "planetary_relocation") {
-      if (item.level > 0) return;
-      const cost = currentItemPrice(item);
-      if (eT < cost) return;
-      eT -= cost;
-      item.level = 1;
-      epcMultiplier = 2;
-      currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
+    } else {
+      if (item.maxLevel !== undefined && item.level >= item.maxLevel) return;
+      const cost = calcItemCost(item);
+      if (energyTotal < cost) return;
+      energyTotal -= cost;
+      item.level += 1;
+      if (item.key === "planetary_relocation" && item.level === 1) {
+        currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
+        setPlanetSprite(currentPlanetSprite);
+      }
     }
-    updateCalculations();
+
+    recalcProduction();
     render(performance.now(), true);
   },
 );
@@ -465,52 +582,51 @@ document.querySelector(".column-right .list")!.addEventListener(
 function updateTechRows() {
   for (const tech of technologies) {
     const v = techViews.get(tech.key)!;
-    const cost = currentTechPrice(tech);
-    v.costEl.textContent = `Cost: ${formatBigNumber(cost)}`;
-    v.rateEl.textContent = `+${formatBigNumber(tech.rate * tech.count)}/sec`;
-    v.btn.disabled = eT < cost;
+    const cost = calcTechCost(tech);
+    v.costEl.textContent = `Cost: ${fmtBig(cost)}`;
+    v.rateEl.textContent = `+${fmtBig(tech.rate * tech.count)}/sec`;
+    v.btn.disabled = energyTotal < cost;
     v.btn.textContent = `Upgrade (${fmtInt(tech.count)})`;
   }
 }
+
 function updateStoreRows() {
   for (const item of storeItems) {
     const v = storeViews.get(item.key)!;
     v.nameEl.textContent = item.name;
     v.descEl.textContent = item.description;
-    if (item.key === "autoclicker_bot") {
-      v.costSpan.textContent = `Cost: ${formatBigNumber(item.baseCost)}`;
-      v.levelSpan.textContent = `Lv. ${item.level}`;
-      v.purchaseBtn.disabled = eT < item.baseCost;
-      if (v.upgradeBtn) {
-        v.upgradeBtn.textContent = `Upgrade (${
-          formatBigNumber(item.upgradeCost!)
-        })`;
-        v.upgradeBtn.disabled = eT < item.upgradeCost!;
-      }
-    } else if (item.key === "planetary_relocation") {
-      const cost = currentItemPrice(item);
-      v.purchaseBtn.disabled = eT < cost || item.level > 0;
 
-      if (item.level > 0) {
-        // After being purchased
-        v.purchaseBtn.textContent = `Relocated!`;
-        v.row.style.opacity = "0.5";
-        v.costSpan.textContent = "";
-        v.levelSpan.textContent = "";
-      } else {
-        v.purchaseBtn.textContent = `Relocate`;
-        v.costSpan.textContent = `Cost: ${formatBigNumber(cost)}`;
-        v.levelSpan.textContent = "";
+    if (item.key === "autoclicker_bot") {
+      v.costSpan.textContent = `Activate: ${fmtBig(item.baseCost)}`;
+      v.levelSpan.textContent = `Lv. ${item.level}`;
+      v.purchaseBtn.disabled = energyTotal < item.baseCost;
+      if (v.upgradeBtn) {
+        const upCost = item.upgradeCost ?? 0;
+        v.upgradeBtn.textContent = `Upgrade (${fmtBig(upCost)})`;
+        v.upgradeBtn.disabled = energyTotal < upCost;
       }
+    } else {
+      const cost = calcItemCost(item);
+      const levelStr = item.maxLevel !== undefined
+        ? `Lv. ${item.level}/${item.maxLevel}`
+        : `Lv. ${item.level}`;
+      v.levelSpan.textContent = levelStr;
+      const capped = item.maxLevel !== undefined && item.level >= item.maxLevel;
+      v.purchaseBtn.textContent = capped ? `Maxed` : `Upgrade`;
+      v.purchaseBtn.disabled = capped || energyTotal < cost;
+      v.costSpan.textContent = capped ? `` : `Cost: ${fmtBig(cost)}`;
+      v.row.style.opacity = capped ? "0.6" : "1";
     }
   }
 }
+
 function render(now: number, force = false) {
   if (!force && now - lastRender < RENDER_MS) return;
   lastRender = now;
 
-  let displayedEpc = epc;
-  const remainingTime = timedAutoclickerEndTime - now;
+  let displayedEpc = energyPerClick;
+  const remainingTime = autoClickerUntilMs - now;
+
   if (remainingTime > 0) {
     const autoclicker = storeItems.find((i) => i.key === "autoclicker_bot")!;
     const autoclickerPowerMultiplier = 1 + (autoclicker.level - 1) * 0.1;
@@ -518,17 +634,22 @@ function render(now: number, force = false) {
 
     iconWrap.classList.add("sparkling");
     timerBarContainer.style.display = "block";
-    timerBarFill.style.width = `${(remainingTime / (1 * 60 * 1000)) * 100}%`;
+    const currentDuration = getAutoClickDurationMs();
+    timerBarFill.style.width = `${
+      Math.max(0, Math.min(1, remainingTime / currentDuration)) * 100
+    }%`;
   } else {
     iconWrap.classList.remove("sparkling");
     timerBarContainer.style.display = "none";
   }
 
-  statTotal.textContent = `${formatBigNumber(eT)} energy`;
-  statEps.textContent = `EPS: ${formatBigNumber(eps)}`;
-  statEpc.textContent = `EPC: ${formatBigNumber(displayedEpc)}`;
+  statTotal.textContent = `${fmtBig(energyTotal)} energy`;
+  statEps.textContent = `EPS: ${fmtBig(energyPerSec)}`;
+  statEpc.textContent = `EPC: ${fmtBig(displayedEpc)}`;
 
-  globe.className = `globe spin ${currentPlanetSprite}`;
+  if (!globe.classList.contains(currentPlanetSprite)) {
+    setPlanetSprite(currentPlanetSprite);
+  }
 
   updateTechRows();
   updateStoreRows();
@@ -539,7 +660,7 @@ function tick(now: number) {
   const dt = now - lastTick;
   if (dt >= TICK_MS) {
     const steps = Math.floor(dt / TICK_MS);
-    eT += eps * (TICK_MS / 1000) * steps;
+    energyTotal += energyPerSec * (TICK_MS / 1000) * steps;
     lastTick += steps * TICK_MS;
     render(now);
   }
@@ -547,6 +668,6 @@ function tick(now: number) {
 }
 
 /* ----- Initialization ----- */
-updateCalculations();
+recalcProduction();
 render(performance.now(), true);
 requestAnimationFrame(tick);
