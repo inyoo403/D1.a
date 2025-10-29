@@ -510,71 +510,94 @@ mainBtn.addEventListener("mousedown", startAutoclicker);
 mainBtn.addEventListener("mouseup", stopAutoclicker);
 mainBtn.addEventListener("mouseleave", stopAutoclicker);
 
+function handleStorePurchase(itemKey: string) {
+  const item = storeItems.find((i) => i.key === itemKey);
+  if (!item) return;
+
+  if (item.key === "autoclicker_bot") {
+    const cost = item.baseCost;
+    if (energyTotal < cost) return;
+    energyTotal -= cost;
+    const nowTs = performance.now();
+    autoClickerUntilMs = nowTs + getAutoClickDurationMs();
+    if (autoClickIntervalId !== null) {
+      stopAutoclicker();
+      startAutoclicker();
+    }
+  } else {
+    if (item.maxLevel !== undefined && item.level >= item.maxLevel) return;
+    const cost = calcItemCost(item);
+    if (energyTotal < cost) return;
+    energyTotal -= cost;
+    item.level += 1;
+    if (item.key === "planetary_relocation" && item.level === 1) {
+      currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
+      setPlanetSprite(currentPlanetSprite);
+    }
+  }
+
+  recalcProduction();
+  render(performance.now(), true);
+}
+
+function handleUpgrade(itemKey: string) {
+  const item = storeItems.find((i) => i.key === itemKey);
+  if (!item) return;
+
+  if (item.key !== "autoclicker_bot") {
+    recalcProduction();
+    render(performance.now(), true);
+    return;
+  }
+
+  const upCost = item.upgradeCost ?? 0;
+  if (energyTotal < upCost) return;
+  energyTotal -= upCost;
+
+  const wasActive = performance.now() < autoClickerUntilMs;
+  const nowTs = performance.now();
+  const oldDuration = getAutoClickDurationMs();
+
+  item.level++;
+  const grow = item.priceGrowth ?? 1.25;
+  item.upgradeCost = Math.floor((item.upgradeCost ?? upCost) * grow);
+
+  if (wasActive) {
+    const remainingFrac = Math.max(
+      0,
+      (autoClickerUntilMs - nowTs) / oldDuration,
+    );
+    const newDuration = getAutoClickDurationMs();
+    autoClickerUntilMs = nowTs + remainingFrac * newDuration;
+    if (autoClickIntervalId !== null) {
+      stopAutoclicker();
+      startAutoclicker();
+    }
+  }
+
+  recalcProduction();
+  render(performance.now(), true);
+}
+
 document.querySelector(".column-right .list")!.addEventListener(
   "click",
   (e) => {
-    const target = e.target as HTMLButtonElement;
+    const target = e.target as HTMLElement;
     const itemKey = target.dataset.itemKey;
-    const action = target.dataset.action ?? "purchase";
+    const action = target.dataset.action || "purchase";
     if (!itemKey) return;
 
     const item = storeItems.find((i) => i.key === itemKey);
     if (!item) return;
 
-    if (item.key === "autoclicker_bot") {
-      if (action === "purchase") {
-        const cost = item.baseCost;
-        if (energyTotal < cost) return;
-        energyTotal -= cost;
-
-        const nowTs = performance.now();
-        autoClickerUntilMs = nowTs + getAutoClickDurationMs();
-
-        if (autoClickIntervalId !== null) {
-          stopAutoclicker();
-          startAutoclicker();
-        }
-      } else if (action === "upgrade") {
-        const upCost = item.upgradeCost ?? 0;
-        if (energyTotal < upCost) return;
-        energyTotal -= upCost;
-
-        const wasActive = performance.now() < autoClickerUntilMs;
-        const nowTs = performance.now();
-        const oldDuration = getAutoClickDurationMs();
-
-        item.level++;
-        const grow = item.priceGrowth ?? 1.25;
-        item.upgradeCost = Math.floor((item.upgradeCost ?? upCost) * grow);
-
-        if (wasActive) {
-          const remainingFrac = Math.max(
-            0,
-            (autoClickerUntilMs - nowTs) / oldDuration,
-          );
-          const newDuration = getAutoClickDurationMs();
-          autoClickerUntilMs = nowTs + remainingFrac * newDuration;
-
-          if (autoClickIntervalId !== null) {
-            stopAutoclicker();
-            startAutoclicker();
-          }
-        }
-      }
-    } else {
-      if (item.maxLevel !== undefined && item.level >= item.maxLevel) return;
-      const cost = calcItemCost(item);
-      if (energyTotal < cost) return;
-      energyTotal -= cost;
-      item.level += 1;
-      if (item.key === "planetary_relocation" && item.level === 1) {
-        currentPlanetSprite = item.spriteClasses?.[1] ?? "earth";
-        setPlanetSprite(currentPlanetSprite);
-      }
+    switch (action) {
+      case "purchase":
+        handleStorePurchase(itemKey);
+        break;
+      case "upgrade":
+        handleUpgrade(itemKey);
+        break;
     }
-
-    recalcProduction();
-    render(performance.now(), true);
   },
 );
 
