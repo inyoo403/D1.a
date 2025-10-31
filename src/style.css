@@ -2,12 +2,12 @@
   --text: #ffffff;
   --muted: #ffffff99;
   --border-color: rgba(255, 255, 255, 0.25);
-  --panel-bg: rgba(255, 255, 255, 0.15);
+  --panel-bg: rgba(255, 255, 255, 0.08);
   --button-bg: rgba(255, 255, 255, 0.2);
   --button-hover-bg: rgba(255, 255, 255, 0.3);
 }
 
-/* ----- BASE & BACKGROUND ----- */
+/* ---------- Base & Background ---------- */
 html, body {
   margin: 0;
   color: var(--text);
@@ -21,7 +21,7 @@ html, body {
   background-attachment: fixed;
 }
 
-/* ----- LAYOUT ----- */
+/* ---------- Layout ---------- */
 .game-container {
   display: grid;
   grid-template-columns: 2fr 3fr 2fr;
@@ -56,13 +56,35 @@ html, body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* ----- COLUMN 1: GLOBE ----- */
+/* ----- TITLE ----- */
+/* UI: Title shadow (credit: fractalizes/cmpm-121-f25-d1) */
+.game-title {
+  margin: 12px 0 8px;
+  text-align: center;
+  font-weight: 900;
+  font-size: clamp(36px, 6vw, 72px);
+  line-height: 1.1;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 0 16px rgba(0, 170, 255, 0.9),
+    0 0 32px rgba(0, 150, 255, 0.6),
+    0 0 60px rgba(0, 120, 255, 0.4),
+    4px 4px 10px rgba(0, 0, 0, 0.5);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Column 1 ---------- */
 .column-left {
   align-items: center;
   justify-content: flex-start;
   text-align: center;
   position: relative;
 }
+
 .stats {
   display: flex;
   flex-direction: column;
@@ -71,6 +93,7 @@ html, body {
   margin: 16px 0;
   font-weight: 500;
 }
+
 .stat-total {
   font-size: 24px;
 }
@@ -78,6 +101,7 @@ html, body {
   font-size: 16px;
   color: var(--muted);
 }
+
 .main-btn {
   background: none;
   border: none;
@@ -101,11 +125,14 @@ html, body {
 .main-btn:active {
   transform: translate(-50%, -50%) scale(0.98);
 }
+
 .iconWrap {
   position: relative;
   width: 100%;
   height: 100%;
 }
+
+/* ---------- Sprite ---------- */
 .globe {
   position: absolute;
   inset: 0;
@@ -114,7 +141,7 @@ html, body {
   background-image: url("/sprites/earth.png");
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-size: 3000% 1000%;
+  background-size: 3000% 1000%; /* 30×10 grid */
   image-rendering: pixelated;
   will-change: opacity, background-position;
   transition: opacity 500ms ease;
@@ -123,6 +150,7 @@ html, body {
   background-image: url("/sprites/mars.png");
 }
 
+/* ---------- Click FX ---------- */
 @keyframes popOnce {
   0% {
     transform: scale(1);
@@ -153,6 +181,7 @@ html, body {
   animation: sparkle 2s ease-in-out infinite;
 }
 
+/* ---------- Autoclick Timer ---------- */
 .timer-bar-container {
   width: 80%;
   height: 10px;
@@ -170,7 +199,7 @@ html, body {
   transition: width 0.1s linear;
 }
 
-/* ----- COLUMN 2 & 3: UPGRADES AND STORE ----- */
+/* ---------- Lists ---------- */
 .list {
   display: flex;
   flex-direction: column;
@@ -196,18 +225,21 @@ html, body {
   font-size: 13px;
   color: var(--muted);
 }
+
 .level-display {
   font-weight: 600;
   color: #4338ca;
   margin-left: 8px;
 }
 
+/* ---------- Buttons ---------- */
 .button-group {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   gap: 8px;
 }
+
 .buy-btn, .upgrade-btn {
   padding: 8px 14px;
   border-radius: 10px;
@@ -239,6 +271,7 @@ html, body {
   background: #4338ca;
 }
 
+/* ---------- Placeholders ---------- */
 .store-placeholder {
   flex-grow: 1;
   display: grid;
@@ -249,6 +282,7 @@ html, body {
   border-radius: 8px;
 }
 
+/* ---------- Floaty ---------- */
 .floating-text {
   position: absolute;
   transform: translateX(-50%);
@@ -260,7 +294,6 @@ html, body {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   animation: float-up 1.5s ease-out forwards;
 }
-
 @keyframes float-up {
   from {
     transform: translate(-50%, 0);

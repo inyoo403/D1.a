@@ -1,11 +1,18 @@
-# CMPM 121 D1 Project
+# Visual & Audio Enhancements (Peer Inspirations)
 
-Implemented Steps 1–5 - added clickable apple button, on-screen counter, auto growth with setInterval → requestAnimationFrame, and upgrade system that increases apples per second with dynamic pricing.
+As part of D1 Revision, I explored peer projects to improve feedback and visual design in my own version:
 
-Implemented Steps 6-10 - added UI, upgrade system, Item shop, and rebalanced.
+- **Title Shadow Effect:**\
+  Inspired by [fractalizes/cmpm-121-f25-d1](https://github.com/fractalizes/cmpm-121-f25-d1).\
+  I noticed their title design used layered shadows and bold contrast to enhance readability and presence.\
+  Implemented by restyling `.game-title` in `style.css` with multi-layered white and blue shadows for a subtle glow and stronger visual hierarchy.
 
-Assets / Credits
+- **Upgrade Button Click Sound:**\
+  Inspired by [benho612/CMPM1212-D1-Assignement](https://github.com/benho612/CMPM1212-D1-Assignement).\
+  I noticed how their upgrade interactions included quick, responsive sound effects to confirm purchases.\
+  Implemented a reusable `Sfx` class in `main.ts` and added sound playback to all upgrade/purchase buttons using `sfx/upgrade.wav`.
 
-Planet Sprites: Created with the Pixel Planet Generator by Deep-Fold.
+## Assets
 
-Background Images: Created with the Space Background Generator by Deep-Fold.
+- **Planet Sprites:** Created with the Pixel Planet Generator by Deep-Fold.
+- **Background Images:** Created with the Space Background Generator by Deep-Fold.
